@@ -14,6 +14,8 @@ server-taz/
 │   └── .env.example
 ├── database/
 │   ├── crear_db.sql                 # Usuario y base de datos
+│   ├── datos/
+│   │   └── usuarios_iniciales.sql   # Usuarios cocina (admin) y repartidor
 │   ├── schema/                      # Tablas (instalación nueva, en orden)
 │   │   ├── 01_funciones.sql
 │   │   ├── 02_usuarios.sql
@@ -45,6 +47,15 @@ Instalación nueva:
 sudo -u postgres psql -v clave='TuClaveSegura' -f database/crear_db.sql
 bash scripts/crear_tablas.sh
 ```
+
+Usuarios iniciales (las claves se pasan al ejecutar, nunca se guardan en el repo;
+el espacio al inicio evita que queden en el historial):
+
+```bash
+ psql -h localhost -U tazmania -d tazmania_db -v clave_cocina='CLAVE1' -v clave_repartidor='CLAVE2' -f database/datos/usuarios_iniciales.sql
+```
+
+Volver a ejecutarlo con otras claves sirve para cambiarlas.
 
 Si las tablas ya estaban creadas con la versión anterior (numero_pedido aleatorio):
 

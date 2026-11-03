@@ -1,4 +1,9 @@
 -- =========================================================
+--  EXTENSIÓN: pgcrypto (encriptar contraseñas con bcrypt)
+-- =========================================================
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- =========================================================
 --  FUNCIÓN: generar_id_unico
 --  Genera un número aleatorio entre [minimo, maximo] que
 --  todavía no exista en la tabla/columna indicada.
