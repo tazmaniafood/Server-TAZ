@@ -16,6 +16,8 @@ server-taz/
 │   ├── crear_db.sql                 # Usuario y base de datos
 │   ├── datos/
 │   │   └── usuarios_iniciales.sql   # Usuario admin
+│   ├── roles/
+│   │   └── usuario_app.sql          # Usuario taz_app (permisos mínimos) para el backend
 │   ├── schema/                      # Tablas (instalación nueva, en orden)
 │   │   ├── 01_funciones.sql
 │   │   ├── 02_usuarios.sql
@@ -58,6 +60,15 @@ el espacio al inicio evita que queden en el historial):
 ```
 
 Volver a ejecutarlo con otra clave sirve para cambiarla.
+
+Usuario de la app `taz_app` (el que usa el backend). Solo puede leer `usuarios`,
+leer/crear `pedidos` y cambiar `pago_confirmado`; no puede borrar ni crear tablas:
+
+```bash
+ sudo -u postgres psql -d tazmania_db -v clave_app='CLAVE' -f database/roles/usuario_app.sql
+```
+
+Volver a ejecutarlo después de crear tablas nuevas o para cambiar la clave.
 
 Si las tablas ya estaban creadas con la versión anterior (numero_pedido aleatorio):
 
