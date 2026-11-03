@@ -15,14 +15,15 @@ server-taz/
 ├── database/
 │   ├── crear_db.sql                 # Usuario y base de datos
 │   ├── datos/
-│   │   └── usuarios_iniciales.sql   # Usuarios admin, cocina y repartidor
+│   │   └── usuarios_iniciales.sql   # Usuario admin
 │   ├── schema/                      # Tablas (instalación nueva, en orden)
 │   │   ├── 01_funciones.sql
 │   │   ├── 02_usuarios.sql
 │   │   └── 03_pedidos.sql
 │   └── migraciones/                 # Cambios sobre una base ya creada
 │       ├── 001_pedidos_numero_secuencial.sql
-│       └── 002_tipo_usuario_cocina.sql
+│       ├── 002_tipo_usuario_cocina.sql
+│       └── 003_un_solo_usuario.sql
 ├── nginx/
 │   ├── snippets/
 │   │   ├── taz-ssl.conf             # Certificado y ajustes HTTPS
@@ -49,20 +50,21 @@ sudo -u postgres psql -v clave='TuClaveSegura' -f database/crear_db.sql
 bash scripts/crear_tablas.sh
 ```
 
-Usuarios iniciales (las claves se pasan al ejecutar, nunca se guardan en el repo;
+Usuario inicial (la clave se pasa al ejecutar, nunca se guardan en el repo;
 el espacio al inicio evita que queden en el historial):
 
 ```bash
- psql -h localhost -U tazmania -d tazmania_db -v clave_admin='CLAVE1' -v clave_cocina='CLAVE2' -v clave_repartidor='CLAVE3' -f database/datos/usuarios_iniciales.sql
+ psql -h localhost -U tazmania -d tazmania_db -v clave_admin='CLAVE' -f database/datos/usuarios_iniciales.sql
 ```
 
-Volver a ejecutarlo con otras claves sirve para cambiarlas.
+Volver a ejecutarlo con otra clave sirve para cambiarla.
 
 Si las tablas ya estaban creadas con la versión anterior (numero_pedido aleatorio):
 
 ```bash
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/001_pedidos_numero_secuencial.sql
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/002_tipo_usuario_cocina.sql
+psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/003_un_solo_usuario.sql
 ```
 
 ## 2. Backend
