@@ -1,10 +1,9 @@
 -- =========================================================
 --  TABLA: pedidos
---  numero_pedido: aleatorio de 8 dígitos (10000000 - 99999999)
+--  numero_pedido: secuencial 1, 2, 3... (único, lo pone PostgreSQL)
 -- =========================================================
 CREATE TABLE IF NOT EXISTS pedidos (
-    numero_pedido    BIGINT         PRIMARY KEY
-                     DEFAULT generar_id_unico('pedidos', 'numero_pedido', 10000000, 99999999),
+    numero_pedido    BIGINT         GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     orden            TEXT           NOT NULL,
     nombre           VARCHAR(100)   NOT NULL,
     celular          VARCHAR(20)    NOT NULL,
