@@ -9,6 +9,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
     usuario          VARCHAR(50)  NOT NULL UNIQUE,
     contrasena_hash  TEXT         NOT NULL,
     tipo_usuario     VARCHAR(20)  NOT NULL DEFAULT 'cliente'
-                     CHECK (tipo_usuario IN ('admin', 'cliente', 'repartidor')),
+                     CHECK (tipo_usuario IN ('admin', 'cocina', 'repartidor', 'cliente')),
     creado_en        TIMESTAMPTZ  NOT NULL DEFAULT now()
 );

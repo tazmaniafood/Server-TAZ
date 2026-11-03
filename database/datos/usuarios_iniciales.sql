@@ -1,11 +1,11 @@
 -- =========================================================
---  USUARIOS INICIALES: cocina (admin) y repartidor
+--  USUARIOS INICIALES: admin, cocina y repartidor
 --  Las contraseñas NO se escriben aquí: se pasan al ejecutar,
 --  y se guardan encriptadas con bcrypt (pgcrypto).
 --
 --  Uso (con un espacio al inicio para que no quede en el historial):
 --     psql -h localhost -U tazmania -d tazmania_db \
---       -v clave_cocina='CLAVE1' -v clave_repartidor='CLAVE2' \
+--       -v clave_admin='CLAVE1' -v clave_cocina='CLAVE2' -v clave_repartidor='CLAVE3' \
 --       -f database/datos/usuarios_iniciales.sql
 --
 --  Si se vuelve a ejecutar con otras claves, se actualizan
@@ -13,7 +13,8 @@
 -- =========================================================
 INSERT INTO usuarios (usuario, contrasena_hash, tipo_usuario)
 VALUES
-    ('cocina',     crypt(:'clave_cocina',     gen_salt('bf', 12)), 'admin'),
+    ('admin',      crypt(:'clave_admin',      gen_salt('bf', 12)), 'admin'),
+    ('cocina',     crypt(:'clave_cocina',     gen_salt('bf', 12)), 'cocina'),
     ('repartidor', crypt(:'clave_repartidor', gen_salt('bf', 12)), 'repartidor')
 ON CONFLICT (usuario) DO UPDATE
     SET contrasena_hash = EXCLUDED.contrasena_hash,

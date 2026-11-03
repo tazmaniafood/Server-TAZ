@@ -15,13 +15,14 @@ server-taz/
 ├── database/
 │   ├── crear_db.sql                 # Usuario y base de datos
 │   ├── datos/
-│   │   └── usuarios_iniciales.sql   # Usuarios cocina (admin) y repartidor
+│   │   └── usuarios_iniciales.sql   # Usuarios admin, cocina y repartidor
 │   ├── schema/                      # Tablas (instalación nueva, en orden)
 │   │   ├── 01_funciones.sql
 │   │   ├── 02_usuarios.sql
 │   │   └── 03_pedidos.sql
 │   └── migraciones/                 # Cambios sobre una base ya creada
-│       └── 001_pedidos_numero_secuencial.sql
+│       ├── 001_pedidos_numero_secuencial.sql
+│       └── 002_tipo_usuario_cocina.sql
 ├── nginx/
 │   ├── snippets/
 │   │   ├── taz-ssl.conf             # Certificado y ajustes HTTPS
@@ -52,7 +53,7 @@ Usuarios iniciales (las claves se pasan al ejecutar, nunca se guardan en el repo
 el espacio al inicio evita que queden en el historial):
 
 ```bash
- psql -h localhost -U tazmania -d tazmania_db -v clave_cocina='CLAVE1' -v clave_repartidor='CLAVE2' -f database/datos/usuarios_iniciales.sql
+ psql -h localhost -U tazmania -d tazmania_db -v clave_admin='CLAVE1' -v clave_cocina='CLAVE2' -v clave_repartidor='CLAVE3' -f database/datos/usuarios_iniciales.sql
 ```
 
 Volver a ejecutarlo con otras claves sirve para cambiarlas.
@@ -61,6 +62,7 @@ Si las tablas ya estaban creadas con la versión anterior (numero_pedido aleator
 
 ```bash
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/001_pedidos_numero_secuencial.sql
+psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/002_tipo_usuario_cocina.sql
 ```
 
 ## 2. Backend
@@ -134,7 +136,7 @@ Para el admin es igual, con `taz-admin.conf` / `taz-admin-mantenimiento.conf`.
 ## Tablas
 
 **usuarios**: `id_usuario` (aleatorio 6 dígitos), `usuario` (único), `contrasena_hash`,
-`tipo_usuario` (admin | cliente | repartidor), `creado_en`.
+`tipo_usuario` (admin | cocina | repartidor | cliente), `creado_en`.
 
 **pedidos**: `numero_pedido` (secuencial 1, 2, 3...), `orden`, `nombre`, `celular`,
 `monto_total`, `medio_pago`, `pago_confirmado`, `creado_en`.
