@@ -6,6 +6,7 @@
 --  Puede:
 --    usuarios -> solo LEER (para el login)
 --    pedidos  -> LEER, CREAR y cambiar SOLO pago_confirmado
+--    tarifas_delivery -> solo LEER (para calcular el delivery)
 --
 --  Uso (como postgres; espacio al inicio para no guardar en el historial):
 --     sudo -u postgres psql -d tazmania_db -v clave_app='CLAVE' -f database/roles/usuario_app.sql
@@ -37,6 +38,8 @@ GRANT SELECT ON usuarios TO taz_app;
 
 GRANT SELECT, INSERT ON pedidos TO taz_app;
 GRANT UPDATE (pago_confirmado) ON pedidos TO taz_app;
+
+GRANT SELECT ON tarifas_delivery TO taz_app;
 
 \echo '>> Permisos de taz_app:'
 SELECT table_name AS tabla, string_agg(privilege_type, ', ' ORDER BY privilege_type) AS permisos

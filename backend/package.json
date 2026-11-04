@@ -5,13 +5,16 @@
   "description": "Backend Tazmania: recibe pedidos y los muestra en el panel de admin",
   "main": "src/index.js",
   "type": "commonjs",
-  "engines": { "node": ">=20.6" },
+  "engines": {
+    "node": ">=20.6"
+  },
   "scripts": {
     "start": "node --env-file=.env src/index.js",
     "dev": "node --env-file=.env --watch src/index.js"
   },
   "dependencies": {
     "express": "^5.1.0",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "stripe": "^23.1.0"
   }
 }
