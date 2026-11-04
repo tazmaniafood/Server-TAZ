@@ -14,7 +14,7 @@ app.set('trust proxy', 'loopback'); // Nginx está delante
 // Webhook de Stripe ANTES de express.json (necesita el body crudo)
 app.use('/api', require('./rutas/stripeWebhook'));
 
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '300kb' })); // el menú completo pesa ~30 KB
 
 // Estado del servidor y de la base de datos
 app.get('/api/salud', async (req, res) => {
@@ -27,12 +27,15 @@ app.get('/api/salud', async (req, res) => {
 });
 
 app.use('/api', require('./rutas/publico'));
+app.use('/api/login', limitePorIp({ maximo: 5, ventanaMs: 60 * 1000 }));
+app.use('/api', require('./rutas/auth'));
+app.use('/api', require('./rutas/menu'));
 app.use('/api/delivery', limitePorIp({ maximo: 30, ventanaMs: 60 * 1000 }));
 app.use('/api', require('./rutas/delivery'));
 app.use('/api/pedidos', limitePorIp({ maximo: 10, ventanaMs: 60 * 1000 }));
 app.use('/api', require('./rutas/pedidos'));
 
-// Aquí irán las rutas de login y panel de admin
+// Aquí irán las rutas de pedidos para el panel (cocina, entregas, estadísticas)
 
 app.use((req, res) => res.status(404).json({ error: 'No encontrado' }));
 
@@ -50,6 +53,7 @@ async function iniciar() {
   await db.comprobarConexion();
   console.log('[db] Conectado a PostgreSQL');
   if (!config.deliveryListo) console.warn('[config] Falta GOOGLE_MAPS_SERVER_KEY o RESTAURANTE_LAT/LNG: no se aceptarán pedidos');
+  if (!config.sesion.secreto) console.warn('[config] Falta SESSION_SECRET: no se puede iniciar sesión en el admin');
   if (!config.stripeListo) console.warn('[config] Falta STRIPE_SECRET_KEY o STRIPE_WEBHOOK_SECRET: pago con tarjeta desactivado');
 
   const servidor = app.listen(PORT, '127.0.0.1', () => {

@@ -16,9 +16,12 @@ server-taz/
 │   │   ├── servicios/
 │   │   │   ├── maps.js              # Google Routes API (millas manejando)
 │   │   │   ├── delivery.js          # Millas -> costo según tarifas_delivery
-│   │   │   └── stripe.js            # Cobros con tarjeta
+│   │   │   ├── stripe.js            # Cobros con tarjeta
+│   │   │   └── sesion.js            # Login del admin (cookie firmada)
 │   │   └── rutas/
 │   │       ├── publico.js           # GET  /api/config
+│   │       ├── auth.js              # POST /api/login, /api/logout, GET /api/sesion
+│   │       ├── menu.js              # GET/PUT /api/menu
 │   │       ├── delivery.js          # POST /api/delivery/cotizar
 │   │       ├── pedidos.js           # POST /api/pedidos
 │   │       └── stripeWebhook.js     # POST /api/stripe/webhook
@@ -28,19 +31,22 @@ server-taz/
 │   ├── crear_db.sql                 # Usuario y base de datos
 │   ├── datos/
 │   │   ├── usuarios_iniciales.sql   # Usuario admin
-│   │   └── tarifas_delivery.sql     # Tramos de precio por millas
+│   │   ├── tarifas_delivery.sql     # Tramos de precio por millas
+│   │   └── menu_inicial.sql         # Menú base (GENERADO desde Frontend-admin)
 │   ├── roles/
 │   │   └── usuario_app.sql          # Usuario taz_app (permisos mínimos) para el backend
 │   ├── schema/                      # Tablas (instalación nueva, en orden)
 │   │   ├── 01_funciones.sql
 │   │   ├── 02_usuarios.sql
 │   │   ├── 03_pedidos.sql
-│   │   └── 04_tarifas_delivery.sql
+│   │   ├── 04_tarifas_delivery.sql
+│   │   └── 05_menu.sql
 │   └── migraciones/                 # Cambios sobre una base ya creada
 │       ├── 001_pedidos_numero_secuencial.sql
 │       ├── 002_tipo_usuario_cocina.sql
 │       ├── 003_un_solo_usuario.sql
-│       └── 004_delivery_y_stripe.sql
+│       ├── 004_delivery_y_stripe.sql
+│       └── 005_menu.sql
 ├── nginx/
 │   ├── snippets/
 │   │   ├── taz-ssl.conf             # Certificado y ajustes HTTPS
@@ -54,6 +60,7 @@ server-taz/
 ├── scripts/
 │   ├── instalar_servidor.sh
 │   ├── crear_tablas.sh
+│   ├── generar_menu_inicial.js      # menu-base.js -> menu_inicial.sql
 │   └── backup.sh
 └── README.md
 ```
@@ -83,6 +90,19 @@ volver a ejecutarlo reemplaza los tramos):
 psql -h localhost -U tazmania -d tazmania_db -f database/datos/tarifas_delivery.sql
 ```
 
+Menú (los datos salen de `Frontend-admin/JS/menu-base.js`):
+
+```bash
+psql -h localhost -U tazmania -d tazmania_db -f database/datos/menu_inicial.sql
+```
+
+Si se agregan o quitan platos en `menu-base.js`, regenerar el SQL y volver a cargarlo
+(actualiza la base y borra lo que ya no existe, **sin perder los cambios hechos en el admin**):
+
+```bash
+node scripts/generar_menu_inicial.js ../Frontend-admin/JS/menu-base.js
+```
+
 Usuario de la app `taz_app` (el que usa el backend). Solo puede leer `usuarios`,
 leer/crear `pedidos` y cambiar `pago_confirmado`; no puede borrar ni crear tablas:
 
@@ -99,9 +119,11 @@ psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/001_pedidos
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/002_tipo_usuario_cocina.sql
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/003_un_solo_usuario.sql
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/004_delivery_y_stripe.sql
+psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/005_menu.sql
 ```
 
-Después de la 004: cargar `tarifas_delivery.sql` y volver a ejecutar `usuario_app.sql`.
+Después de la 004: cargar `tarifas_delivery.sql`. Después de la 005: cargar `menu_inicial.sql`.
+Al final, volver a ejecutar `usuario_app.sql` (permisos de las tablas nuevas).
 
 ## 2. Backend
 
@@ -125,6 +147,7 @@ Comprobar: `curl http://127.0.0.1:3000/api/salud` -> `{"ok":true,"db":"conectada
 | `STRIPE_SECRET_KEY` | Stripe -> Developers -> API keys (`sk_...`) | **Sí** |
 | `STRIPE_PUBLISHABLE_KEY` | Stripe -> Developers -> API keys (`pk_...`) | No |
 | `STRIPE_WEBHOOK_SECRET` | Stripe -> Developers -> Webhooks (`whsec_...`) | **Sí** |
+| `SESSION_SECRET` | `openssl rand -hex 32` (firma la cookie de sesión del admin) | **Sí** |
 
 Webhook de Stripe: crear el endpoint `https://TU-DOMINIO.com/api/stripe/webhook`
 con los eventos `payment_intent.succeeded` y `payment_intent.payment_failed`.
@@ -174,6 +197,40 @@ const pedido = await p.json();
 //    usando pedido.stripe_client_secret. El pedido queda pago_confirmado = true
 //    cuando Stripe avisa al webhook (no cuando la página dice que pagó).
 ```
+
+### Endpoints del menú y del admin
+
+| Método | Ruta | Quién | Para qué |
+|---|---|---|---|
+| GET | `/api/menu` | Público (tienda) | Menú actual: `{ items: { "<id>": { seccion, n, d, p, g, ing } }, actualizado }` |
+| POST | `/api/login` | Admin | `{ usuario, clave }` -> pone la cookie de sesión (12 h) |
+| GET | `/api/sesion` | Admin | ¿Sigo conectado? -> `{ usuario, tipo_usuario }` o 401 |
+| POST | `/api/logout` | Admin | Cierra la sesión |
+| GET | `/api/menu/cambios` | Admin | `{ cambios, actualizado }` (lo mismo que guarda `menu.js` en localStorage) |
+| PUT | `/api/menu` | Admin | `{ cambios, actualizado }`: lo que ya manda `Frontend-admin/JS/menu.js` |
+
+```js
+// Admin: iniciar sesión (reemplaza el login provisional de auth.js)
+const r = await fetch('/api/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'same-origin',
+  body: JSON.stringify({ usuario: 'admin', clave: '...' }),
+});
+// 200 -> { usuario, tipo_usuario }   401 -> { error }   429 -> demasiados intentos (5/min)
+
+// Admin: al abrir la página Menú, traer lo guardado en el servidor
+const { cambios, actualizado } = await (await fetch('/api/menu/cambios', { credentials: 'same-origin' })).json();
+
+// Tienda: precios actuales
+const { items } = await (await fetch('/api/menu')).json();
+items['pizza-hawaiana'].p            // [13, 19, 24]  (Personal, Medium, Familiar)
+items['topping-queso-extra@pizza'].p // precio del topping en pizza
+```
+
+`PUT /api/menu` reemplaza todos los cambios: un id que no viene vuelve al original.
+Si llega un envío más viejo que el guardado (otro navegador que estaba sin internet), responde
+`{ ok: true, aplicado: false }` y no pisa nada.
 
 Errores: siempre `{ error: 'mensaje' }`. 400 = datos mal enviados, 422 = fuera de zona,
 429 = demasiadas solicitudes, 503 = Google/Stripe no disponibles o sin configurar.
@@ -246,6 +303,10 @@ Para el admin es igual, con `taz-admin.conf` / `taz-admin-mantenimiento.conf`.
 `direccion`, `lat`, `lng`, `distancia_millas`, `subtotal`, `costo_delivery`,
 `monto_total` (= subtotal + costo_delivery), `medio_pago`, `pago_confirmado`,
 `stripe_payment_intent_id`, `creado_en`.
+
+**menu**: `id` (el mismo de `menu-base.js`), `seccion`, `orden`, `base` (original),
+`cambios` (lo editado en el admin), `actualizado_cliente`, `actualizado_en`.
+Lo que ve la tienda = `base || cambios`.
 
 **tarifas_delivery**: `millas_desde`, `millas_hasta`, `costo`, `activo`.
 Aplica el tramo donde `millas_desde <= distancia < millas_hasta`; más allá del último = fuera de zona.

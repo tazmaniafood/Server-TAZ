@@ -24,7 +24,15 @@ const config = {
     secretoWebhook: process.env.STRIPE_WEBHOOK_SECRET || null,    // whsec_... (secreta)
     moneda: (process.env.STRIPE_MONEDA || 'usd').toLowerCase(),
   },
+  sesion: {
+    secreto: process.env.SESSION_SECRET || null,                  // para firmar la cookie del admin
+    cookieSegura: process.env.COOKIE_SEGURA !== 'false',          // false solo para probar sin HTTPS
+  },
 };
+
+if (config.sesion.secreto && config.sesion.secreto.length < 32) {
+  throw new Error('SESSION_SECRET debe tener al menos 32 caracteres (usar: openssl rand -hex 32)');
+}
 
 config.deliveryListo = Boolean(
   config.google.claveServidor && config.restaurante.lat !== null && config.restaurante.lng !== null
