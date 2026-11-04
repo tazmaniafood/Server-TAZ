@@ -15,7 +15,7 @@ server-taz/
 │   │   ├── middleware/limite.js     # Límite de peticiones por IP
 │   │   ├── servicios/
 │   │   │   ├── maps.js              # Google Routes API (millas manejando)
-│   │   │   ├── delivery.js          # Millas -> costo según tarifas_delivery
+│   │   │   ├── delivery.js          # Millas x precio por milla (con alcance máximo)
 │   │   │   ├── stripe.js            # Cobros con tarjeta
 │   │   │   └── sesion.js            # Login del admin (cookie firmada)
 │   │   └── rutas/
@@ -31,7 +31,7 @@ server-taz/
 │   ├── crear_db.sql                 # Usuario y base de datos
 │   ├── datos/
 │   │   ├── usuarios_iniciales.sql   # Usuario admin
-│   │   ├── tarifas_delivery.sql     # Tramos de precio por millas
+│   │   ├── delivery_config.sql      # Precio por milla y alcance máximo
 │   │   └── menu_inicial.sql         # Menú base (GENERADO desde Frontend-admin)
 │   ├── roles/
 │   │   └── usuario_app.sql          # Usuario taz_app (permisos mínimos) para el backend
@@ -39,14 +39,15 @@ server-taz/
 │   │   ├── 01_funciones.sql
 │   │   ├── 02_usuarios.sql
 │   │   ├── 03_pedidos.sql
-│   │   ├── 04_tarifas_delivery.sql
+│   │   ├── 04_delivery_config.sql
 │   │   └── 05_menu.sql
 │   └── migraciones/                 # Cambios sobre una base ya creada
 │       ├── 001_pedidos_numero_secuencial.sql
 │       ├── 002_tipo_usuario_cocina.sql
 │       ├── 003_un_solo_usuario.sql
 │       ├── 004_delivery_y_stripe.sql
-│       └── 005_menu.sql
+│       ├── 005_menu.sql
+│       └── 006_precio_por_milla.sql
 ├── nginx/
 │   ├── snippets/
 │   │   ├── taz-ssl.conf             # Certificado y ajustes HTTPS
@@ -83,11 +84,12 @@ el espacio al inicio evita que queden en el historial):
 
 Volver a ejecutarlo con otra clave sirve para cambiarla.
 
-Tramos de delivery (editar los precios en el archivo antes de ejecutarlo;
-volver a ejecutarlo reemplaza los tramos):
+Precio del delivery: `costo = millas manejando x precio_por_milla`; si pasa de
+`millas_maximas` queda fuera de alcance. Editar los valores en el archivo y ejecutarlo
+(volver a ejecutarlo sirve para cambiarlos):
 
 ```bash
-psql -h localhost -U tazmania -d tazmania_db -f database/datos/tarifas_delivery.sql
+psql -h localhost -U tazmania -d tazmania_db -f database/datos/delivery_config.sql
 ```
 
 Menú (los datos salen de `Frontend-admin/JS/menu-base.js`):
@@ -120,9 +122,11 @@ psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/002_tipo_us
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/003_un_solo_usuario.sql
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/004_delivery_y_stripe.sql
 psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/005_menu.sql
+psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/006_precio_por_milla.sql
 ```
 
-Después de la 004: cargar `tarifas_delivery.sql`. Después de la 005: cargar `menu_inicial.sql`.
+La 006 solo hace falta si ya se había corrido la 004 vieja (con tramos).
+Después de la 004/006: cargar `delivery_config.sql`. Después de la 005: cargar `menu_inicial.sql`.
 Al final, volver a ejecutar `usuario_app.sql` (permisos de las tablas nuevas).
 
 ## 2. Backend
@@ -158,6 +162,15 @@ el pago con tarjeta. Al arrancar, el log avisa qué falta.
 
 ### Endpoints para la página
 
+La tienda es **abierta**: no hay registro ni sesión para el cliente (entrar, pedir y pagar).
+La sesión solo existe en el panel admin.
+
+Flujo del checkout (un solo formulario con nombre, celular, dirección y pago):
+1. El cliente llena el formulario; al elegir/confirmar la dirección (o mover el pin) se llama
+   a `/api/delivery/cotizar` y se muestra al momento el delivery y el total.
+2. Al darle Pagar se envía todo junto a `/api/pedidos` (el servidor recalcula el delivery).
+3. Si es tarjeta, se completa el pago con Stripe en la misma pantalla.
+
 El precio del delivery y el total **los calcula el servidor**: la página solo manda
 la ubicación y el subtotal; lo que mande como delivery o total se ignora.
 
@@ -173,7 +186,7 @@ const r = await fetch('/api/delivery/cotizar', {
   body: JSON.stringify({ lat: 25.7791, lng: -80.1918 }),
 });
 // 200 -> { distancia_millas: 1.5, minutos: 15, costo_delivery: 3 }
-// 422 -> { error: 'La dirección está fuera de la zona de entrega' }
+// 422 -> { error: 'La dirección está fuera de nuestro alcance de entrega' }
 
 // 3. Enviar el pedido
 const p = await fetch('/api/pedidos', {
@@ -308,5 +321,5 @@ Para el admin es igual, con `taz-admin.conf` / `taz-admin-mantenimiento.conf`.
 `cambios` (lo editado en el admin), `actualizado_cliente`, `actualizado_en`.
 Lo que ve la tienda = `base || cambios`.
 
-**tarifas_delivery**: `millas_desde`, `millas_hasta`, `costo`, `activo`.
-Aplica el tramo donde `millas_desde <= distancia < millas_hasta`; más allá del último = fuera de zona.
+**delivery_config** (una sola fila): `precio_por_milla`, `millas_maximas`.
+`costo_delivery = distancia_millas x precio_por_milla`; más de `millas_maximas` = fuera de alcance.

@@ -2,7 +2,7 @@
 --  MIGRACIÓN 004: delivery (Google Maps) y pagos con Stripe
 --  - pedidos: direccion, lat, lng, distancia_millas, subtotal,
 --    costo_delivery, stripe_payment_intent_id
---  - tabla nueva tarifas_delivery
+--  - tabla nueva delivery_config (precio por milla y alcance)
 --  Los pedidos que ya existían quedan con delivery 0 y sin dirección.
 --  Uso:
 --    psql -h localhost -U tazmania -d tazmania_db -f database/migraciones/004_delivery_y_stripe.sql
@@ -44,6 +44,6 @@ ALTER TABLE pedidos
     ADD CONSTRAINT pedidos_costo_delivery_check   CHECK (costo_delivery >= 0),
     ADD CONSTRAINT pedidos_check                  CHECK (monto_total = subtotal + costo_delivery);
 
-\ir ../schema/04_tarifas_delivery.sql
+\ir ../schema/04_delivery_config.sql
 
 COMMIT;

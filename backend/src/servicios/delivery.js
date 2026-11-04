@@ -1,8 +1,10 @@
 // =========================================================
 //  Cálculo del costo de delivery
+//    costo = millas manejando (restaurante -> cliente) x precio por milla
+//    más de millas_maximas -> fuera de alcance
 //  1) Descarta en línea recta lo que está claramente lejos (gratis)
 //  2) Pide las millas manejando a Google
-//  3) Busca el tramo en la tabla tarifas_delivery
+//  3) Multiplica por el precio de delivery_config
 // =========================================================
 const db = require('../db/pool');
 const config = require('../config');
@@ -15,6 +17,8 @@ class ErrorDelivery extends Error {
   }
 }
 
+const FUERA = 'La dirección está fuera de nuestro alcance de entrega';
+
 /**
  * Devuelve { millas, minutos, costoCentavos } o lanza ErrorDelivery.
  * El costo va en centavos (enteros) para no tener errores de decimales.
@@ -24,14 +28,17 @@ async function cotizar(lat, lng) {
     throw new ErrorDelivery('El cálculo de delivery no está configurado', 503);
   }
 
-  const { rows: [{ maximo }] } = await db.query(
-    'SELECT MAX(millas_hasta)::float AS maximo FROM tarifas_delivery WHERE activo'
+  const { rows } = await db.query(
+    `SELECT round(precio_por_milla * 100)::int AS centavos_milla,
+            millas_maximas::float AS maximo
+       FROM delivery_config`
   );
-  if (maximo === null) throw new ErrorDelivery('No hay tarifas de delivery cargadas', 503);
+  if (rows.length === 0) throw new ErrorDelivery('El precio del delivery no está configurado', 503);
+  const { centavos_milla: centavosMilla, maximo } = rows[0];
 
   // Manejando nunca es más corto que en línea recta
-  if (millasLineaRecta(config.restaurante.lat, config.restaurante.lng, lat, lng) >= maximo) {
-    throw new ErrorDelivery('La dirección está fuera de la zona de entrega', 422);
+  if (millasLineaRecta(config.restaurante.lat, config.restaurante.lng, lat, lng) > maximo) {
+    throw new ErrorDelivery(FUERA, 422);
   }
 
   let ruta;
@@ -42,18 +49,13 @@ async function cotizar(lat, lng) {
     throw new ErrorDelivery('No se pudo calcular la distancia, intenta de nuevo', 503);
   }
   if (!ruta) throw new ErrorDelivery('No hay ruta en carro hasta esa dirección', 422);
+  if (ruta.millas > maximo) throw new ErrorDelivery(FUERA, 422);
 
-  const { rows } = await db.query(
-    `SELECT round(costo * 100)::int AS centavos
-       FROM tarifas_delivery
-      WHERE activo AND $1 >= millas_desde AND $1 < millas_hasta
-      ORDER BY millas_desde
-      LIMIT 1`,
-    [ruta.millas]
-  );
-  if (rows.length === 0) throw new ErrorDelivery('La dirección está fuera de la zona de entrega', 422);
-
-  return { millas: ruta.millas, minutos: ruta.minutos, costoCentavos: rows[0].centavos };
+  return {
+    millas: ruta.millas,
+    minutos: ruta.minutos,
+    costoCentavos: Math.round(ruta.millas * centavosMilla),
+  };
 }
 
 module.exports = { cotizar, ErrorDelivery };

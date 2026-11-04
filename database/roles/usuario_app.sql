@@ -6,7 +6,7 @@
 --  Puede:
 --    usuarios -> solo LEER (para el login)
 --    pedidos  -> LEER, CREAR y cambiar SOLO pago_confirmado
---    tarifas_delivery -> solo LEER (para calcular el delivery)
+--    delivery_config  -> solo LEER (precio por milla y alcance)
 --    menu     -> LEER y cambiar SOLO cambios (lo que edita el admin)
 --
 --  Uso (como postgres; espacio al inicio para no guardar en el historial):
@@ -40,7 +40,7 @@ GRANT SELECT ON usuarios TO taz_app;
 GRANT SELECT, INSERT ON pedidos TO taz_app;
 GRANT UPDATE (pago_confirmado) ON pedidos TO taz_app;
 
-GRANT SELECT ON tarifas_delivery TO taz_app;
+GRANT SELECT ON delivery_config TO taz_app;
 
 GRANT SELECT ON menu TO taz_app;
 GRANT UPDATE (cambios, actualizado_cliente, actualizado_en) ON menu TO taz_app;
